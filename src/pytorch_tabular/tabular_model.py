@@ -281,19 +281,19 @@ class TabularModel:
 
     def _setup_experiment_tracking(self):
         """Sets up the Experiment Tracking Framework according to the choices made in the Experimentconfig."""
-        if self.config.log_target == "tensorboard":
-            self.logger = pl.loggers.TensorBoardLogger(
-                name=self.run_name, save_dir=self.config.project_name, version=self.uid
-            )
-        elif self.config.log_target == "wandb":
-            self.logger = pl.loggers.WandbLogger(
-                name=f"{self.run_name}_{self.uid}",
-                project=self.config.project_name,
-                offline=False,
-            )
+        if self.mlflow_logger is not None:
+            self.logger = self.mlflow_logger
         else:
-            if self.mlflow_logger is not None:
-                self.logger = self.mlflow_logger
+            if self.config.log_target == "tensorboard":
+                self.logger = pl.loggers.TensorBoardLogger(
+                    name=self.run_name, save_dir=self.config.project_name, version=self.uid
+                )
+            elif self.config.log_target == "wandb":
+                self.logger = pl.loggers.WandbLogger(
+                    name=f"{self.run_name}_{self.uid}",
+                    project=self.config.project_name,
+                    offline=False,
+                )
             else:
                 raise NotImplementedError(
                     f"{self.config.log_target} is not implemented. Try one of [wandb," " tensorboard]"
