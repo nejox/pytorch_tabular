@@ -599,8 +599,9 @@ class TabularModel:
         model.data_aware_initialization(datamodule)
         if self.model_state_dict_path is not None:
             self._load_weights(model, self.model_state_dict_path)
-        if self.track_experiment and self.config.log_target == "wandb":
-            self.logger.watch(model, log=self.config.exp_watch, log_freq=self.config.exp_log_freq)
+        if self.track_experiment:
+            if self.config.log_target == "wandb":
+                self.logger.watch(model, log=self.config.exp_watch, log_freq=self.config.exp_log_freq)
         return model
 
     def train(
