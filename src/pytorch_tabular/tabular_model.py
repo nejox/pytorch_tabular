@@ -19,6 +19,7 @@ import torchmetrics
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from pandas import DataFrame
+from pytorch_lightning.loggers import Logger
 from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import RichProgressBar
 from pytorch_lightning.callbacks.gradient_accumulation_scheduler import (
@@ -81,6 +82,7 @@ class TabularModel:
         model_state_dict_path: Optional[Union[str, Path]] = None,
         verbose: bool = True,
         suppress_lightning_logger: bool = False,
+        mlflow_logger: Logger = None,
     ) -> None:
         """The core model which orchestrates everything from initializing the datamodule, the model, trainer, etc.
 
@@ -121,6 +123,7 @@ class TabularModel:
         if suppress_lightning_logger:
             suppress_lightning_logs()
         self.verbose = verbose
+        self.mlflow_logger = mlflow_logger
         self.exp_manager = ExperimentRunManager()
         if config is None:
             assert any(c is not None for c in (data_config, model_config, optimizer_config, trainer_config)), (
@@ -136,15 +139,20 @@ class TabularModel:
                     "`target` in data_config should not be None for" f" {model_config.task} task"
                 )
             if experiment_config is None:
-                if self.verbose:
-                    logger.info("Experiment Tracking is turned off")
-                self.track_experiment = False
+                if mlflow_logger is None:
+                    if self.verbose:
+                        logger.info("Experiment Tracking is turned off")
+                    self.track_experiment = False
+                else:
+                    self.track_experiment = True
+
                 self.config = OmegaConf.merge(
                     OmegaConf.to_container(data_config),
                     OmegaConf.to_container(model_config),
                     OmegaConf.to_container(trainer_config),
                     OmegaConf.to_container(optimizer_config),
                 )
+
             else:
                 experiment_config = self._read_parse_config(experiment_config, ExperimentConfig)
                 self.track_experiment = True
@@ -284,9 +292,12 @@ class TabularModel:
                 offline=False,
             )
         else:
-            raise NotImplementedError(
-                f"{self.config.log_target} is not implemented. Try one of [wandb," " tensorboard]"
-            )
+            if self.mlflow_logger is not None:
+                self.logger = self.mlflow_logger
+            else:
+                raise NotImplementedError(
+                    f"{self.config.log_target} is not implemented. Try one of [wandb," " tensorboard]"
+                )
 
     def _prepare_callbacks(self, callbacks=None) -> List:
         """Prepares the necesary callbacks to the Trainer based on the configuration.
