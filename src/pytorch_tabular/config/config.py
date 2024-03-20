@@ -605,8 +605,8 @@ class ExperimentConfig:
     log_target: str = field(
         default="tensorboard",
         metadata={
-            "help": "Determines where logging happens - Tensorboard or W&B",
-            "choices": ["wandb", "tensorboard"],
+            "help": "Determines where logging happens - Tensorboard or W&B or mlflow",
+            "choices": ["wandb", "tensorboard", "mlflow"],
         },
     )
     log_logits: bool = field(
