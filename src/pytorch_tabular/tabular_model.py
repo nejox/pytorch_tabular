@@ -1352,7 +1352,7 @@ class TabularModel:
         elif progress_bar == "tqdm":
             from tqdm.auto import tqdm
 
-            progress_bar = partial(tqdm, description="Generating Predictions...")
+            progress_bar = partial(tqdm, desc="Generating Predictions...")
         else:
             progress_bar = lambda it: it  # noqa E731
         point_predictions, quantile_predictions, logits_predictions = self._generate_predictions(
