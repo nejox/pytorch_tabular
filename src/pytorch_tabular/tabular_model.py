@@ -330,6 +330,9 @@ class TabularModel:
                 every_n_epochs=self.config.checkpoints_every_n_epochs,
                 **self.config.checkpoints_kwargs,
             )
+            if self.config.checkpoints_kwargs.get("save_last", False):
+                model_checkpoint.CHECKPOINT_NAME_LAST = self.run_name + "_last-{epoch}"
+                
             callbacks.append(model_checkpoint)
             self.config.enable_checkpointing = True
         else:
