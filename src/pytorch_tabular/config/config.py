@@ -797,7 +797,7 @@ class ModelConfig:
     )
 
     head_config: Optional[Dict] = field(
-        default_factory=lambda: {"layers": ""},
+        default_factory=lambda: {},
         metadata={
             "help": "The config as a dict which defines the head."
             " If left empty, will be initialized as default linear head."
