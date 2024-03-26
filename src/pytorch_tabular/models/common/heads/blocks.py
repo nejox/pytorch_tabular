@@ -73,8 +73,11 @@ LOG2PI = math.log(2 * math.pi)
 class MixtureDensityHead(nn.Module):
     _config_template = head_config.MixtureDensityHeadConfig
 
-    def __init__(self, config: DictConfig, **kwargs):
+    def __init__(self, in_units: int, output_dim: int, config: DictConfig, **kwargs):
         self.hparams = config
+        if self.hparams.input_dim is None:
+            self.hparams.input_dim = in_units
+
         super().__init__()
         self._build_network()
 
