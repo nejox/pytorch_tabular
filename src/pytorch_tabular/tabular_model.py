@@ -124,7 +124,7 @@ class TabularModel:
             suppress_lightning_logs()
         self.verbose = verbose
         self.mlflow_logger = mlflow_logger
-        self.exp_manager = ExperimentRunManager()
+        #self.exp_manager = ExperimentRunManager()
         if config is None:
             assert any(c is not None for c in (data_config, model_config, optimizer_config, trainer_config)), (
                 "If `config` is None, `data_config`, `model_config`,"
@@ -173,13 +173,15 @@ class TabularModel:
                     logger.info("Experiment Tracking is turned off")
                 self.track_experiment = False
 
-        self.run_name, self.uid = self._get_run_name_uid()
+        #self.run_name, self.uid = self._get_run_name_uid()
         if self.track_experiment:
             self._setup_experiment_tracking()
         else:
             self.logger = None
+            self.run_name = "TabTransformer_0"
+            self.uid = 0
 
-        self.exp_manager = ExperimentRunManager()
+        #self.exp_manager = ExperimentRunManager()
         if model_callable is None:
             self.model_callable = getattr_nested(self.config._module_src, self.config._model_name)
             self.custom_model = False
@@ -283,6 +285,7 @@ class TabularModel:
         """Sets up the Experiment Tracking Framework according to the choices made in the Experimentconfig."""
         if self.mlflow_logger is not None:
             self.logger = self.mlflow_logger
+            self.run_name = self.mlflow_logger.run_id
         else:
             if self.config.log_target == "tensorboard":
                 self.logger = pl.loggers.TensorBoardLogger(
@@ -316,7 +319,7 @@ class TabularModel:
             )
             callbacks.append(early_stop_callback)
         if self.config.checkpoints:
-            ckpt_name = f"{self.run_name}-{self.uid}"
+            ckpt_name = f"{self.run_name}"
             ckpt_name = ckpt_name.replace(" ", "_") + "_{epoch}-{valid_loss:.2f}"
             model_checkpoint = pl.callbacks.ModelCheckpoint(
                 monitor=self.config.checkpoints,
