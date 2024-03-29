@@ -332,7 +332,7 @@ class TabularModel:
             )
             if self.config.checkpoints_kwargs.get("save_last", False):
                 model_checkpoint.CHECKPOINT_NAME_LAST = self.run_name + "_last-{epoch}"
-                
+
             callbacks.append(model_checkpoint)
             self.config.enable_checkpointing = True
         else:
@@ -370,6 +370,10 @@ class TabularModel:
         trainer_args_config["enable_progress_bar"] = self.config.progress_bar != "none"
         # Adding trainer_kwargs from config to trainer_args
         trainer_args_config.update(self.config.trainer_kwargs)
+
+        if self.config.devices_list is not None:
+          trainer_args_config["devices"] = self.config.devices_list
+
         if trainer_args_config["devices"] == -1:
             # Setting devices to auto if -1 so that lightning will use all available GPUs/CPUs
             trainer_args_config["devices"] = "auto"
