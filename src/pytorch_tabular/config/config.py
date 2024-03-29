@@ -540,7 +540,7 @@ class TrainerConfig:
             self.accelerator = "cpu"
         #if self.devices_list is not None:
         #    self.devices = self.devices_list
-        delattr(self, "devices_list")
+        #delattr(self, "devices_list")
         for key in self.early_stopping_kwargs.keys():
             if key in ["min_delta", "mode", "patience"]:
                 raise ValueError(

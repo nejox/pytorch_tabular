@@ -377,6 +377,9 @@ class TabularModel:
         if trainer_args_config["devices"] == -1:
             # Setting devices to auto if -1 so that lightning will use all available GPUs/CPUs
             trainer_args_config["devices"] = "auto"
+
+        print(f"Trainer configured with devices: {trainer_args_config['devices']} and accelerator: {trainer_args_config['accelerator']}")
+
         return pl.Trainer(
             logger=self.logger,
             callbacks=callbacks,
