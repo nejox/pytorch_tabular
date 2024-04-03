@@ -19,7 +19,7 @@ import torchmetrics
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from pandas import DataFrame
-from pytorch_lightning.loggers import Logger
+from pytorch_lightning.loggers import Logger, MLFlowLogger
 from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import RichProgressBar
 from pytorch_lightning.callbacks.gradient_accumulation_scheduler import (
@@ -500,7 +500,10 @@ class TabularModel:
             model.custom_optimizer_params = custom_params["custom_optimizer_params"]
         model._setup_loss()
         model._setup_metrics()
-        tabular_model = cls(config=config, model_callable=model_callable)
+        mlflow_logger = None
+        if isinstance(logger, MLFlowLogger):
+            mlflow_logger = logger
+        tabular_model = cls(config=config, model_callable=model_callable, mlflow_logger=mlflow_logger)
         tabular_model.model = model
         tabular_model.custom_model = custom_model
         tabular_model.datamodule = datamodule
