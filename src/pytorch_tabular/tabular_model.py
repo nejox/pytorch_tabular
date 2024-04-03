@@ -124,7 +124,7 @@ class TabularModel:
             suppress_lightning_logs()
         self.verbose = verbose
         self.mlflow_logger = mlflow_logger
-        #self.exp_manager = ExperimentRunManager()
+        # self.exp_manager = ExperimentRunManager()
         if config is None:
             assert any(c is not None for c in (data_config, model_config, optimizer_config, trainer_config)), (
                 "If `config` is None, `data_config`, `model_config`,"
@@ -173,7 +173,7 @@ class TabularModel:
                     logger.info("Experiment Tracking is turned off")
                 self.track_experiment = False
 
-        #self.run_name, self.uid = self._get_run_name_uid()
+        # self.run_name, self.uid = self._get_run_name_uid()
         if self.track_experiment:
             self._setup_experiment_tracking()
         else:
@@ -181,7 +181,7 @@ class TabularModel:
             self.run_name = "TabTransformer_0"
             self.uid = 0
 
-        #self.exp_manager = ExperimentRunManager()
+        # self.exp_manager = ExperimentRunManager()
         if model_callable is None:
             self.model_callable = getattr_nested(self.config._module_src, self.config._model_name)
             self.custom_model = False
@@ -286,6 +286,8 @@ class TabularModel:
         if self.mlflow_logger is not None:
             self.logger = self.mlflow_logger
             self.run_name = self.mlflow_logger.run_id
+            if self.config.run_name is None:
+                self.config.run_name = self.run_name
         else:
             if self.config.log_target == "tensorboard":
                 self.logger = pl.loggers.TensorBoardLogger(
@@ -297,6 +299,9 @@ class TabularModel:
                     project=self.config.project_name,
                     offline=False,
                 )
+            elif self.config.log_target == "mlflow":
+                logger.warning("MLFlowLogger is None and log_target is mlflow. Please provide a valid MLFlowLogger.")
+                self.logger = None
             else:
                 raise NotImplementedError(
                     f"{self.config.log_target} is not implemented. Try one of [wandb," " tensorboard]"
@@ -372,13 +377,14 @@ class TabularModel:
         trainer_args_config.update(self.config.trainer_kwargs)
 
         if self.config.devices_list is not None:
-          trainer_args_config["devices"] = self.config.devices_list
+            trainer_args_config["devices"] = self.config.devices_list
 
         if trainer_args_config["devices"] == -1:
             # Setting devices to auto if -1 so that lightning will use all available GPUs/CPUs
             trainer_args_config["devices"] = "auto"
 
-        print(f"Trainer configured with devices: {trainer_args_config['devices']} and accelerator: {trainer_args_config['accelerator']}")
+        print(
+            f"Trainer configured with devices: {trainer_args_config['devices']} and accelerator: {trainer_args_config['accelerator']}")
 
         return pl.Trainer(
             logger=self.logger,
@@ -460,9 +466,6 @@ class TabularModel:
             custom_model = True
         else:
             model_callable = getattr_nested(config._module_src, config._model_name)
-            # model_callable = getattr(
-            #     getattr(models, config._module_src), config._model_name
-            # )
             custom_model = False
         inferred_config = datamodule.update_config(config)
         inferred_config = OmegaConf.structured(inferred_config)
@@ -616,7 +619,7 @@ class TabularModel:
         if self.model_state_dict_path is not None:
             self._load_weights(model, self.model_state_dict_path)
         if self.track_experiment and self.config.log_target == "wandb":
-                self.logger.watch(model, log=self.config.exp_watch, log_freq=self.config.exp_log_freq)
+            self.logger.watch(model, log=self.config.exp_watch, log_freq=self.config.exp_log_freq)
         return model
 
     def train(
@@ -903,6 +906,7 @@ class TabularModel:
         learning_rate: Optional[float] = None,
         target_range: Optional[Tuple[float, float]] = None,
         seed: Optional[int] = 42,
+        mlflow_logger: Optional[MLFlowLogger] = None,
     ):
         """Creates a new TabularModel model using the pretrained weights and the new task and head.
 
@@ -1008,7 +1012,9 @@ class TabularModel:
             seed=seed,
             config_override={"target": target} if target is not None else {},
         )
-        model_callable = _GenericModel
+        # model_callable = _GenericModel
+        model_callable = getattr_nested(self.config._module_src, self.config._model_name)
+
         inferred_config = OmegaConf.structured(datamodule._inferred_config)
         # Adding dummy attributes for compatibility. Not used because custom metrics are provided
         if not hasattr(config, "metrics"):
@@ -1068,7 +1074,11 @@ class TabularModel:
         model = model_callable(
             **model_args,
         )
-        tabular_model = TabularModel(config=config, verbose=self.verbose)
+
+        if mlflow_logger is None:
+            mlflow_logger = self.mlflow_logger
+
+        tabular_model = TabularModel(config=config, verbose=self.verbose, mlflow_logger=mlflow_logger)
         tabular_model.model = model
         tabular_model.datamodule = datamodule
         # Setting a flag to identify this as a fine-tune model
@@ -1081,6 +1091,7 @@ class TabularModel:
         min_epochs: Optional[int] = None,
         callbacks: Optional[List[pl.Callback]] = None,
         freeze_backbone: bool = False,
+        freeze_embedding: bool = False,
     ) -> pl.Trainer:
         """Finetunes the model on the provided data.
 
@@ -1105,6 +1116,10 @@ class TabularModel:
         if freeze_backbone:
             for param in self.model.backbone.parameters():
                 param.requires_grad = False
+        if freeze_embedding:
+            for param in self.model.embedding_layer.parameters():
+                param.requires_grad = False
+                
         return self.train(
             self.model,
             self.datamodule,
@@ -1285,7 +1300,7 @@ class TabularModel:
                     )
                     if is_probabilistic:
                         for j, q in enumerate(quantiles):
-                            col_ = f"{target_col}_q{int(q*100)}"
+                            col_ = f"{target_col}_q{int(q * 100)}"
                             pred_df[col_] = self.datamodule.target_transforms[i].inverse_transform(
                                 quantile_predictions[:, j, i].reshape(-1, 1)
                             )
@@ -1293,7 +1308,7 @@ class TabularModel:
                     pred_df[f"{target_col}_prediction"] = point_predictions[:, i]
                     if is_probabilistic:
                         for j, q in enumerate(quantiles):
-                            pred_df[f"{target_col}_q{int(q*100)}"] = quantile_predictions[:, j, i].reshape(-1, 1)
+                            pred_df[f"{target_col}_q{int(q * 100)}"] = quantile_predictions[:, j, i].reshape(-1, 1)
 
         elif self.config.task == "classification":
             point_predictions = nn.Softmax(dim=-1)(point_predictions).numpy()
@@ -1726,7 +1741,7 @@ class TabularModel:
                 cat_attributions = []
                 index_counter = self.model.hparams.continuous_dim
                 for _, embed_dim in self.model.hparams.embedding_dims:
-                    cat_attributions.append(attributions[:, index_counter : index_counter + embed_dim].sum(dim=1))
+                    cat_attributions.append(attributions[:, index_counter: index_counter + embed_dim].sum(dim=1))
                     index_counter += embed_dim
                 cat_attributions = torch.stack(cat_attributions, dim=1)
                 attributions = torch.cat(
@@ -1866,7 +1881,7 @@ class TabularModel:
             "Something went wrong. The number of features in the attributions"
             f" ({attributions.shape[1]}) does not match the number of features in"
             " the model"
-            f" ({self.model.hparams.continuous_dim+self.model.hparams.categorical_dim})"
+            f" ({self.model.hparams.continuous_dim + self.model.hparams.categorical_dim})"
         )
         return pd.DataFrame(
             attributions.detach().cpu().numpy(),
@@ -1985,7 +2000,7 @@ class TabularModel:
         oof_preds = []
         for fold, (train_idx, val_idx) in it:
             if verbose:
-                logger.info(f"Running Fold {fold+1}/{cv.get_n_splits()}")
+                logger.info(f"Running Fold {fold + 1}/{cv.get_n_splits()}")
             # train_fold = train.iloc[train_idx]
             # val_fold = train.iloc[val_idx]
             if reset_datamodule:
@@ -2014,7 +2029,7 @@ class TabularModel:
                 result = self.evaluate(train.iloc[val_idx], verbose=False)
                 cv_metrics.append(result[0][metric])
             if verbose:
-                logger.info(f"Fold {fold+1}/{cv.get_n_splits()} score: {cv_metrics[-1]}")
+                logger.info(f"Fold {fold + 1}/{cv.get_n_splits()} score: {cv_metrics[-1]}")
             self.model.reset_weights()
         return cv_metrics, oof_preds
 
@@ -2155,7 +2170,7 @@ class TabularModel:
         model = None
         for fold, (train_idx, val_idx) in enumerate(cv.split(train, y=train[self.config.target], groups=groups)):
             if verbose:
-                logger.info(f"Running Fold {fold+1}/{cv.get_n_splits()}")
+                logger.info(f"Running Fold {fold + 1}/{cv.get_n_splits()}")
             train_fold = train.iloc[train_idx]
             val_fold = train.iloc[val_idx]
             if reset_datamodule:
@@ -2180,7 +2195,7 @@ class TabularModel:
             elif self.config.task == "regression":
                 pred_prob_l.append(fold_preds.values)
             if verbose:
-                logger.info(f"Fold {fold+1}/{cv.get_n_splits()} prediction done")
+                logger.info(f"Fold {fold + 1}/{cv.get_n_splits()} prediction done")
             self.model.reset_weights()
         pred_df = self._combine_predictions(pred_prob_l, pred_idx, aggregate, weights)
         if return_raw_predictions:
