@@ -664,6 +664,8 @@ class TabularModel:
                     self.model,
                     train_dataloaders=train_loader,
                     val_dataloaders=val_loader,
+                    min_lr=self.config.auto_lr_find_min_lr,
+                    update_attr=self.config.auto_lr_find_update_attr,
                 )
             if oom_handler.oom_triggered:
                 raise OOMException(
@@ -675,6 +677,12 @@ class TabularModel:
                     f"Suggested LR: {result.suggestion()}. For plot and detailed"
                     " analysis, use `find_learning_rate` method."
                 )
+            if result.suggestion() < 1e-5:
+                warnings.warn(
+                    "The Learning Rate suggested is very low." #Suggestion is not applied."
+                )
+                #self.trainer.optimizers[0].param_groups[0]["lr"] = self.config.lr
+
             self.model.reset_weights()
             # Parameters in models needs to be initialized again after LR find
             self.model.data_aware_initialization(self.datamodule)
@@ -1119,7 +1127,7 @@ class TabularModel:
         if freeze_embedding:
             for param in self.model.embedding_layer.parameters():
                 param.requires_grad = False
-                
+
         return self.train(
             self.model,
             self.datamodule,

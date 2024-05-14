@@ -404,6 +404,14 @@ class TrainerConfig:
             " to find optimal initial learning rate."
         },
     )
+    auto_lr_find_min_lr: float = field(
+        default=1e-5,
+        metadata={"help": "Minimum learning rate to consider for the learning rate finder"},
+    )
+    auto_lr_find_update_attr: bool = field(
+        default=True,
+        metadata={"help": "Whether to update the learning rate attribute of the optimizer"},
+    )
     auto_select_gpus: bool = field(
         default=True,
         metadata={
